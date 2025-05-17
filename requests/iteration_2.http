@@ -1,0 +1,90 @@
+### Positive test: Authorized user can deposit with correct data
+POST http://localhost:4111/api/v1/accounts/deposit
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "id": 2,
+  "balance": 0.001
+}
+
+### Negative test: Authorized user can't deposit a negative balance
+### Negative test: Authorized user can't deposit a zero balance
+POST http://localhost:4111/api/v1/accounts/deposit
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "id": 1,
+  "balance": -1.111
+}
+
+### Negative test: Authorized user can't deposit account that doesn't exist
+POST http://localhost:4111/api/v1/accounts/deposit
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "id": 999,
+  "balance": 100
+}
+
+### Positove test: Authorized user can transfer money from one account to another with correct data
+POST http://localhost:4111/api/v1/accounts/transfer
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "senderAccountId": 1,
+  "receiverAccountId": 2,
+  "amount": 1
+}
+
+### Negative test: Authorized user can't transfer a negative amount
+### Negative test: Authorized user can't transfer a zero amount
+### Negative test: Authorized user cannot transfer an amount than greater than the account balance
+POST http://localhost:4111/api/v1/accounts/transfer
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "senderAccountId": 1,
+  "receiverAccountId": 2,
+  "amount": 0
+}
+
+### Negative test: Authorized user can't transfer money to not existed account
+POST http://localhost:4111/api/v1/accounts/transfer
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "senderAccountId": 1,
+  "receiverAccountId": 999,
+  "amount": 100
+}
+
+### Positove test: Authorized user can view account transactions of own account
+GET http://localhost:4111/api/v1/accounts/1/transactions
+Content-Type: application/json
+Authorization:  Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+### Negative test: Authorized user cannot view account transactions of another accounts
+GET http://localhost:4111/api/v1/accounts/999/transactions
+Content-Type: application/json
+Authorization:  Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+### Positive test: Authorized user can view own profile
+GET http://localhost:4111/api/v1/customer/profile
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+### Positive test: Authorized user can update name with valid data
+PUT http://localhost:4111/api/v1/customer/profile
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "name": "NewName123"
+}
+
