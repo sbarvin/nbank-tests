@@ -17,7 +17,7 @@ public class CustomerProfileResponse extends BaseModel {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class Customer {
+    public static class Customer extends BaseModel {
 
         private long id;
         private String username;
