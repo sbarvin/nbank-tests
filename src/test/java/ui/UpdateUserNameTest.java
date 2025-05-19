@@ -25,15 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class UpdateUserNameTest extends BaseTest {
 
-    //✅ Name updated successfully!
-
-    //❌ Please enter a valid name.
-
-    //<h2 class="welcome-text">Welcome, <span style="color: rgb(252, 21, 137); font-weight: bold;">1</span>!</h2>
-
-    //<div class="profile-header" style="cursor: pointer;"><div class="user-info" style="padding-right: 20px;">
-    // <span class="user-name">1</span><br><span class="user-username">@barvinsk</span></div></div>
-
     private static CreateUserRequest userRequest;
     private static String authToken;
     private static CustomerProfileResponse.Customer startProfile;
