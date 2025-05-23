@@ -61,4 +61,16 @@ public class AccountSteps {
         );
         return accountBalances;
     }
+
+    public static DepositAccountResponse getAccountInfo(CreateUserRequest userRequest, long accountId) {
+        var customerProfile = new ValidatedCrudRequester<CustomerProfileResponse.Customer>(
+                RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                Endpoint.CUSTOMER_PROFILE,
+                ResponseSpecs.requestReturnsOK()
+        ).getAll();
+
+        return customerProfile.getAccounts().stream()
+                .filter(a -> a.getId() == accountId)
+                .findFirst().get();
+    }
 }
