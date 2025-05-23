@@ -1,16 +1,15 @@
 package api;
 
-import generators.RandomData;
+import generators.RandomModelGenerator;
 import models.CreateUserRequest;
 import models.CustomerProfileRequest;
 import models.CustomerProfileResponse;
-import models.UserRole;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.jupiter.api.Assertions;
+import models.comparison.ModelAssertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import requests.AdminCreateUserRequester;
-import requests.CustomerProfileRequester;
+import requests.skelethon.Endpoint;
+import requests.skelethon.requesters.ValidatedCrudRequester;
+import requests.steps.AdminSteps;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
@@ -20,39 +19,30 @@ public class UpdateUserNameTest {
 
     @BeforeAll
     public static void setup() {
-        //формируем данные пользователя
-        userRequest = new CreateUserRequest(
-                RandomData.getUsername(),
-                RandomData.getPassword(),
-                UserRole.USER.toString()
-        );
-
         //создаем пользователя
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(userRequest);
+        userRequest = AdminSteps.createUser();
     }
 
     @Test
     void userCanUpdateNameWithValidData() {
 
         // формируем запрос на изменение имени
-        var updateProfileRequest = CustomerProfileRequest.builder()
-                .name(RandomStringUtils.randomAlphabetic(10))
-                .build();
+        var updateProfileRequest = RandomModelGenerator.generate(CustomerProfileRequest.class);
 
         // изменяем имя
-        new CustomerProfileRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsOK())
-                .put(updateProfileRequest);
+        new ValidatedCrudRequester<CustomerProfileResponse>(
+                RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                Endpoint.CUSTOMER_PROFILE_UPDATE,
+                ResponseSpecs.requestReturnsOK()
+        ).put(updateProfileRequest);
 
         // проверяем, что имя изменилось
-        var actualProfile = new CustomerProfileRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsOK())
-                .get()
-                .extract().as(CustomerProfileResponse.Customer.class);
+        var actualProfile = new ValidatedCrudRequester<CustomerProfileResponse.Customer>(
+                RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                Endpoint.CUSTOMER_PROFILE,
+                ResponseSpecs.requestReturnsOK()
+        ).getAll();
 
-        Assertions.assertEquals(updateProfileRequest.getName(), actualProfile.getName());
+        ModelAssertions.assertThatModels(updateProfileRequest, actualProfile).match();
     }
 }

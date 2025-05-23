@@ -1,14 +1,19 @@
 package api;
 
-import generators.RandomData;
-import models.*;
+import models.CreateUserRequest;
+import models.TransferAccountRequest;
+import models.TransferAccountResponse;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import requests.*;
+import requests.skelethon.Endpoint;
+import requests.skelethon.requesters.CrudRequester;
+import requests.skelethon.requesters.ValidatedCrudRequester;
+import requests.steps.AccountSteps;
+import requests.steps.AdminSteps;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
@@ -26,45 +31,22 @@ public class TransferAccountTest {
     @BeforeAll
     public static void setupUserAndAccount() {
 
-        //формируем данные пользователя
-        userRequest = new CreateUserRequest(
-                RandomData.getUsername(),
-                RandomData.getPassword(),
-                UserRole.USER.toString()
-        );
-
         //создаем пользователя
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(userRequest);
+        userRequest = AdminSteps.createUser();
 
-        // создаем аккаунт(счет) в кол-ве 2 штук для перевода денег между ними
-        List.of(1, 2).forEach(
-                num -> accountIds.add(
-                        new CreateAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                                ResponseSpecs.entityWasCreated())
-                                .post(null)
-                                .extract().jsonPath().getLong("id")
-                )
-        );
+        //создаем аккаунт(счет) в кол-ве 2 штук для перевода денег между ними
+        accountIds = AccountSteps.createAccounts(userRequest, 2);
 
         // пополнение всех аккаунтов (счетов) на 100
         accountIds.forEach(
-                accountId -> {
-                    var depositRequest = new DepositAccountRequest(accountId, 100d);
-
-                    new DepositeAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                            ResponseSpecs.requestReturnsOK())
-                            .post(depositRequest);
-                }
+                accountId -> AccountSteps.depositAccount(userRequest, accountId, 100d)
         );
     }
 
     @BeforeEach
     public void setupStartBalance() {
         //получаем информацию о началном балансе счетов
-        startBalance = getAccountBalances(accountIds);
+        startBalance = AccountSteps.getAccountBalances(userRequest, accountIds);
     }
 
     @Test
@@ -75,20 +57,17 @@ public class TransferAccountTest {
         var amount = 1d;
 
         //формируем данные для перевода денег с одного счета на другой
-        var transferRequest = TransferAccountRequest.builder()
-                .senderAccountId(senderAccountId)
-                .receiverAccountId(receiverAccountId)
-                .amount(amount)
-                .build();
+        var transferRequest = new TransferAccountRequest(senderAccountId, receiverAccountId, amount);
 
         //переводим деньги
-        new TransferAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsOK())
-                .post(transferRequest);
-
+        new ValidatedCrudRequester<TransferAccountResponse>(
+                RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                Endpoint.ACCOUNTS_TRANSFER,
+                ResponseSpecs.requestReturnsOK()
+        ).post(transferRequest);
 
         //проверяем, что на счете отправителя баланс стал меньше на 1, а на счете получателя больше на 1
-        var actualBalance = getAccountBalances(accountIds);
+        var actualBalance = AccountSteps.getAccountBalances(userRequest, accountIds);
 
         Assertions.assertAll(
                 () -> Assertions.assertEquals(
@@ -110,20 +89,17 @@ public class TransferAccountTest {
         var receiverAccountId = startBalance.keySet().stream().toList().getLast();
 
         //формируем данные для перевода денег с одного счета на другой
-        var transferRequest = TransferAccountRequest.builder()
-                .senderAccountId(senderAccountId)
-                .receiverAccountId(receiverAccountId)
-                .amount(amount)
-                .build();
+        var transferRequest = new TransferAccountRequest(senderAccountId, receiverAccountId, amount);
 
         //переводим деньги
-        new TransferAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsBadRequest("Invalid transfer: insufficient funds or invalid accounts"))
-                .post(transferRequest);
+        new CrudRequester(
+                RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                Endpoint.ACCOUNTS_TRANSFER,
+                ResponseSpecs.requestReturnsBadRequest("Invalid transfer: insufficient funds or invalid accounts")
+        ).post(transferRequest);
 
         //проверяем, что на счете отправителя и получателя баланс не изменился
-        var actualBalance = getAccountBalances(accountIds);
-
+        var actualBalance = AccountSteps.getAccountBalances(userRequest, accountIds);
         Assertions.assertEquals(startBalance, actualBalance);
     }
 
@@ -135,43 +111,17 @@ public class TransferAccountTest {
         var amount = 1d;
 
         //формируем данные для перевода денег с несуществующего аккаунта на существующий
-        var transferRequest = TransferAccountRequest.builder()
-                .senderAccountId(senderAccountId)
-                .receiverAccountId(receiverAccountId)
-                .amount(amount)
-                .build();
+        var transferRequest = new TransferAccountRequest(senderAccountId, receiverAccountId, amount);
 
         //переводим деньги
-        new TransferAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsBadRequest("Invalid transfer: insufficient funds or invalid accounts"))
-                .post(transferRequest);
+        new CrudRequester(
+                RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                Endpoint.ACCOUNTS_TRANSFER,
+                ResponseSpecs.requestReturnsBadRequest("Invalid transfer: insufficient funds or invalid accounts")
+        ).post(transferRequest);
 
         //проверяем, что на счете получателя баланс не изменился
-        var actualBalance = getAccountBalances(accountIds);
-
+        var actualBalance = AccountSteps.getAccountBalances(userRequest, accountIds);
         Assertions.assertEquals(startBalance, actualBalance);
-    }
-
-    //получение информации о балансе счетов
-    private Map<Long, Double> getAccountBalances(List<Long> accountIds) {
-        Map<Long, Double> accountBalances = new HashMap<>();
-        accountIds.forEach(
-                accountId -> accountBalances.put(accountId, getAccountBalance(accountId))
-        );
-        return accountBalances;
-    }
-
-    //получение баланса по id счета
-    private double getAccountBalance(long accountId) {
-        CustomerProfileResponse.Customer customer = new CustomerProfileRequester(
-                RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsOK())
-                .get()
-                .extract().as(CustomerProfileResponse.Customer.class);
-
-        return customer.getAccounts().stream()
-                .filter(a -> a.getId() == accountId)
-                .findFirst()
-                .get().getBalance();
     }
 }
