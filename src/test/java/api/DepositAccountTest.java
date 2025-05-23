@@ -18,6 +18,9 @@ import requests.DepositeAccountRequester;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
+import static constants.ApiErrorMessages.INVALID_ACCOUNT_OR_AMOUNT;
+import static constants.ApiErrorMessages.UNAUTHORIZED_ACCESS_TO_ACCOUNT;
+
 public class DepositAccountTest {
 
     private static CreateUserRequest userRequest;
@@ -74,13 +77,12 @@ public class DepositAccountTest {
     @ParameterizedTest(name = "Сумма пополнения = {0}")
     @ValueSource(doubles = {-1.0, 0.0})
     void userCannotDepositInvalidBalance(double balance) {
-
         //формируем данные для пополнения счета
         var depositRequest = new DepositAccountRequest(accountId, balance);
 
         //пополняем счет
         new DepositeAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsBadRequest("Invalid account or amount"))
+                ResponseSpecs.requestReturnsBadRequest(INVALID_ACCOUNT_OR_AMOUNT.getMessage()))
                 .post(depositRequest);
 
         //проверяем, что баланс счета не изменился
@@ -95,7 +97,7 @@ public class DepositAccountTest {
 
         //пополняем счет
         new DepositeAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsForbidden("Unauthorized access to account"))
+                ResponseSpecs.requestReturnsForbidden(UNAUTHORIZED_ACCESS_TO_ACCOUNT.getMessage()))
                 .post(depositRequest);
     }
 

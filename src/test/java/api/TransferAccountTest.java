@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static constants.ApiErrorMessages.INVALID_TRANSFER;
+
 public class TransferAccountTest {
 
     private static CreateUserRequest userRequest;
@@ -118,7 +120,7 @@ public class TransferAccountTest {
 
         //переводим деньги
         new TransferAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsBadRequest("Invalid transfer: insufficient funds or invalid accounts"))
+                ResponseSpecs.requestReturnsBadRequest(INVALID_TRANSFER.getMessage()))
                 .post(transferRequest);
 
         //проверяем, что на счете отправителя и получателя баланс не изменился
@@ -143,7 +145,7 @@ public class TransferAccountTest {
 
         //переводим деньги
         new TransferAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
-                ResponseSpecs.requestReturnsBadRequest("Invalid transfer: insufficient funds or invalid accounts"))
+                ResponseSpecs.requestReturnsBadRequest(INVALID_TRANSFER.getMessage()))
                 .post(transferRequest);
 
         //проверяем, что на счете получателя баланс не изменился
