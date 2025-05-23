@@ -4,9 +4,37 @@ Content-Type: application/json
 Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
 
 {
-  "id": 2,
-  "balance": 0.001
+  "id": 1,
+  "balance": 5000
 }
+
+> {%
+    client.test("Positive test: Authorized user can deposit with correct data", () => {
+        const expectedStatus = 200;
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+    });
+%}
+
+### Positive test: Authorized user cannot deposit more then 5000
+POST http://localhost:4111/api/v1/accounts/deposit
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "id": 1,
+  "balance": 5001
+}
+
+> {%
+    client.test("Positive test: Authorized user cannot deposit more then 5000", () => {
+        const expectedStatus = 200;
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+    });
+%}
 
 ### Negative test: Authorized user can't deposit a negative balance
 ### Negative test: Authorized user can't deposit a zero balance
@@ -16,8 +44,22 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
 
 {
   "id": 1,
-  "balance": -1.111
+  "balance": -1.11
 }
+
+> {%
+    client.test("Negative test: Authorized user can't deposit a negative balance", () => {
+        const expectedStatus = 400;
+        const expectedBody = "Invalid account or amount";
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+        client.assert(response.body === expectedBody,
+            "Response body expected is '" + expectedBody + "', but actual is '" + response.body + "'"
+        );
+    });
+%}
 
 ### Negative test: Authorized user can't deposit account that doesn't exist
 POST http://localhost:4111/api/v1/accounts/deposit
@@ -29,7 +71,21 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
   "balance": 100
 }
 
-### Positove test: Authorized user can transfer money from one account to another with correct data
+> {%
+    client.test("Negative test: Authorized user can't deposit account that doesn't exist", () => {
+        const expectedStatus = 403;
+        const expectedBody = "Unauthorized access to account";
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+        client.assert(response.body === expectedBody,
+            "Response body expected is '" + expectedBody + "', but actual is '" + response.body + "'"
+        );
+    })
+%}
+
+### Positive test: Authorized user can transfer money from one account to another with correct data
 POST http://localhost:4111/api/v1/accounts/transfer
 Content-Type: application/json
 Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
@@ -39,6 +95,47 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
   "receiverAccountId": 2,
   "amount": 1
 }
+
+> {%
+    client.test("Positive test: Authorized user can transfer money from one account to another with correct data", () => {
+        const expectedStatus = 200;
+        const expectedBodyMessage = "Transfer successful";
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+
+        client.assert(response.body.message === expectedBodyMessage,
+            "Response body.message expected is " + expectedBodyMessage + ", but actual is " + response.body.message
+        );
+    })
+%}
+
+### Positive test: Authorized user can transfer money from one account to another more then 10000
+POST http://localhost:4111/api/v1/accounts/transfer
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "senderAccountId": 1,
+  "receiverAccountId": 2,
+  "amount": 10001
+}
+
+> {%
+    client.test("Positive test: Authorized user can transfer money from one account to another more then 10000", () => {
+        const expectedStatus = 200;
+        const expectedBodyMessage = "Transfer successful";
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+
+        client.assert(response.body.message === expectedBodyMessage,
+            "Response body.message expected is " + expectedBodyMessage + ", but actual is " + response.body.message
+        );
+    })
+%}
 
 ### Negative test: Authorized user can't transfer a negative amount
 ### Negative test: Authorized user can't transfer a zero amount
@@ -53,6 +150,20 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
   "amount": 0
 }
 
+> {%
+    client.test("Negative test: Authorized user can't transfer a zero amount", () => {
+        const expectedStatus = 400;
+        const expectedBody = "Invalid transfer: insufficient funds or invalid accounts";
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+        client.assert(response.body === expectedBody,
+            "Response body expected is '" + expectedBody + "', but actual is '" + response.body + "'"
+        );
+    })
+%}
+
 ### Negative test: Authorized user can't transfer money to not existed account
 POST http://localhost:4111/api/v1/accounts/transfer
 Content-Type: application/json
@@ -64,27 +175,222 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
   "amount": 100
 }
 
-### Positove test: Authorized user can view account transactions of own account
+> {%
+    client.test("Negative test: Authorized user can't transfer money to not existed account", () => {
+        const expectedStatus = 400;
+        const expectedBody = "Invalid transfer: insufficient funds or invalid accounts";
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+        client.assert(response.body === expectedBody,
+            "Response body expected is '" + expectedBody + "', but actual is '" + response.body + "'"
+        );
+    })
+%}
+
+### Positive test: Authorized user can view account transactions of own account
 GET http://localhost:4111/api/v1/accounts/1/transactions
 Content-Type: application/json
 Authorization:  Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+> {%
+    client.test("Positive test: Authorized user can view account transactions of own account", () => {
+        const expectedStatus = 200;
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+    })
+%}
 
 ### Negative test: Authorized user cannot view account transactions of another accounts
 GET http://localhost:4111/api/v1/accounts/999/transactions
 Content-Type: application/json
 Authorization:  Basic YmFydmluc2s6YmFydmluc0sxIQ==
 
+> {%
+    client.test("Negative test: Authorized user cannot view account transactions of another accounts", () => {
+        const expectedStatus = 403;
+        const expectedBody = "You do not have permission to access this account";
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+        client.assert(response.body === expectedBody,
+            "Response body expected is '" + expectedBody + "', but actual is '" + response.body + "'"
+        );
+    })
+%}
+
 ### Positive test: Authorized user can view own profile
 GET http://localhost:4111/api/v1/customer/profile
 Content-Type: application/json
 Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
 
-### Positive test: Authorized user can update name with valid data
+> {%
+    client.test("Positive test: Authorized user can view own profile", () => {
+        const expectedStatus = 200;
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+    })
+%}
+
+### Positive test: Authorized user can update name and password with valid data
 PUT http://localhost:4111/api/v1/customer/profile
 Content-Type: application/json
 Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
 
 {
-  "name": "NewName123"
+  "name": "{{$random.name.fullName}}",
+  "password": "{{$random.internet.password}}"
 }
 
+> {%
+    client.test("Positive test: Authorized user can update name and password with valid data", () => {
+        const expectedStatus = 200;
+        const expectedBodyMessage = "Profile updated successfully";
+        const expectedBodyName = request.body().name;
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+
+        client.assert(response.body.message === expectedBodyMessage,
+            "Response body.message expected is " + expectedBodyMessage + ", but actual is " + response.body.message
+        );
+
+        client.assert(response.body.name === expectedBodyName,
+            "Response body.name expected is " + expectedBodyName + ", but actual is " + response.body.name
+        );
+
+        client.assert(response.body.password !== null,
+            "Response body.password is not null"
+        );
+    })
+%}
+
+### Positive test: Authorized user can update only name with valid data
+PUT http://localhost:4111/api/v1/customer/profile
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "name": "{{$random.name.fullName}}"
+}
+
+> {%
+    client.test("Positive test: Authorized user can update only name with valid data", () => {
+        const expectedStatus = 200;
+        const expectedBodyMessage = "Profile updated successfully";
+        const expectedBodyName = request.body().name;
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+
+        client.assert(response.body.message === expectedBodyMessage,
+            "Response body.message expected is " + expectedBodyMessage + ", but actual is " + response.body.message
+        );
+
+        client.assert(response.body.name === expectedBodyName,
+            "Response body.name expected is " + expectedBodyName + ", but actual is " + response.body.name
+        );
+
+        client.assert(response.body.password !== null,
+            "Response body.password is not null"
+        );
+    })
+%}
+
+### Positive test: Authorized user can update only password with valid data
+PUT http://localhost:4111/api/v1/customer/profile
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "password": "{$random.internet.password}}"
+}
+
+> {%
+    client.test("Positive test: Authorized user can update only password with valid data", () => {
+        const expectedStatus = 200;
+        const expectedBodyMessage = "Profile updated successfully";
+        const expectedBodyPassword = request.body().password;
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+
+        client.assert(response.body.message === expectedBodyMessage,
+            "Response body.message expected is " + expectedBodyMessage + ", but actual is " + response.body.message
+        );
+
+        client.assert(response.body.password === expectedBodyPassword,
+            "Response body.password expected is " + expectedBodyPassword + ", but actual is " + response.body.password
+        );
+
+        client.assert(response.body.name !== null,
+            "Response body.name is not null"
+        );
+    })
+%}
+
+### Negative test: Authorized user can update only password with valid data
+PUT http://localhost:4111/api/v1/customer/profile
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "password": "{$random.internet.password}}"
+}
+
+> {%
+    client.test("Positive test: Authorized user can update only password with valid data", () => {
+        const expectedStatus = 200;
+        const expectedBodyMessage = "Profile updated successfully";
+        const expectedBodyPassword = request.body().password;
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+
+        client.assert(response.body.message === expectedBodyMessage,
+            "Response body.message expected is " + expectedBodyMessage + ", but actual is " + response.body.message
+        );
+
+        client.assert(response.body.password === expectedBodyPassword,
+            "Response body.password expected is " + expectedBodyPassword + ", but actual is " + response.body.password
+        );
+
+        client.assert(response.body.name !== null,
+            "Response body.name is not null"
+        );
+    })
+%}
+
+### Negative test: Authorized user cannot update password without digits.
+### Negative test: Authorized user cannot update password without including a lowercase character.
+### Negative test: Authorized user cannot update password without including one uppercase character.
+### Negative test: Authorized user cannot update password without a special character.
+### Negative test: Authorized user cannot update password with spaces.
+### Negative test: Authorized user cannot update password to less than 8 characters.
+PUT http://localhost:4111/api/v1/customer/profile
+Content-Type: application/json
+Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
+
+{
+  "password": "1234567"
+}
+
+> {%
+    client.test("Negative test: Authorized user cannot update password to less than 8 characters", () => {
+        const expectedStatus = 400;
+
+        client.assert(response.status === expectedStatus,
+            "Response status expected is " + expectedStatus + ", but actual is " + response.status
+        );
+    })
+%}
