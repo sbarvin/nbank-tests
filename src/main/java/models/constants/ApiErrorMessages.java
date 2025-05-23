@@ -1,4 +1,4 @@
-package constants;
+package models.constants;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

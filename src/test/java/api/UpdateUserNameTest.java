@@ -4,7 +4,7 @@ import generators.RandomData;
 import models.CreateUserRequest;
 import models.CustomerProfileRequest;
 import models.CustomerProfileResponse;
-import models.UserRole;
+import models.constants.UserRole;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;

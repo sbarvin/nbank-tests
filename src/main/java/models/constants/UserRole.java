@@ -1,4 +1,4 @@
-package models;
+package models.constants;
 
 public enum UserRole {
     USER,

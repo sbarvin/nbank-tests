@@ -4,7 +4,7 @@ import generators.RandomData;
 import models.CreateUserRequest;
 import models.CustomerProfileResponse;
 import models.DepositAccountRequest;
-import models.UserRole;
+import models.constants.UserRole;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,8 +18,8 @@ import requests.DepositeAccountRequester;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
-import static constants.ApiErrorMessages.INVALID_ACCOUNT_OR_AMOUNT;
-import static constants.ApiErrorMessages.UNAUTHORIZED_ACCESS_TO_ACCOUNT;
+import static models.constants.ApiErrorMessages.INVALID_ACCOUNT_OR_AMOUNT;
+import static models.constants.ApiErrorMessages.UNAUTHORIZED_ACCESS_TO_ACCOUNT;
 
 public class DepositAccountTest {
 

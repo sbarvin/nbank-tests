@@ -1,5 +1,6 @@
 package api;
 
+import models.constants.UserRole;
 import generators.RandomData;
 import models.*;
 import org.junit.jupiter.api.Assertions;
@@ -17,7 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static constants.ApiErrorMessages.INVALID_TRANSFER;
+import static models.constants.ApiErrorMessages.INVALID_TRANSFER;
 
 public class TransferAccountTest {
 
