@@ -17,7 +17,7 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
     });
 %}
 
-### Positive test: Authorized user cannot deposit more then 5000
+### Negative test: Authorized user cannot deposit more then 5000
 POST http://localhost:4111/api/v1/accounts/deposit
 Content-Type: application/json
 Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
@@ -28,8 +28,8 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
 }
 
 > {%
-    client.test("Positive test: Authorized user cannot deposit more then 5000", () => {
-        const expectedStatus = 200;
+    client.test("Negative test: Authorized user cannot deposit more then 5000", () => {
+        const expectedStatus = 400;
         client.assert(response.status === expectedStatus,
             "Response status expected is " + expectedStatus + ", but actual is " + response.status
         );
@@ -111,7 +111,7 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
     })
 %}
 
-### Positive test: Authorized user can transfer money from one account to another more then 10000
+### Negative test: Authorized user cannot transfer money from one account to another more then 10000
 POST http://localhost:4111/api/v1/accounts/transfer
 Content-Type: application/json
 Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
@@ -123,16 +123,11 @@ Authorization: Basic YmFydmluc2s6YmFydmluc0sxIQ==
 }
 
 > {%
-    client.test("Positive test: Authorized user can transfer money from one account to another more then 10000", () => {
-        const expectedStatus = 200;
-        const expectedBodyMessage = "Transfer successful";
+    client.test("Negative test: Authorized user cannot transfer money from one account to another more then 10000", () => {
+        const expectedStatus = 400;
 
         client.assert(response.status === expectedStatus,
             "Response status expected is " + expectedStatus + ", but actual is " + response.status
-        );
-
-        client.assert(response.body.message === expectedBodyMessage,
-            "Response body.message expected is " + expectedBodyMessage + ", but actual is " + response.body.message
         );
     })
 %}
