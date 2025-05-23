@@ -1,85 +1,58 @@
 package api;
 
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
-import io.restassured.http.ContentType;
+import generators.RandomData;
+import models.CreateUserRequest;
+import models.CustomerProfileRequest;
+import models.CustomerProfileResponse;
+import models.UserRole;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.http.HttpStatus;
-import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
-import static io.restassured.RestAssured.given;
+import requests.AdminCreateUserRequester;
+import requests.CustomerProfileRequester;
+import specs.RequestSpecs;
+import specs.ResponseSpecs;
 
 public class UpdateUserNameTest {
 
-    private static String AUTH_TOKEN;
+    private static CreateUserRequest userRequest;
 
     @BeforeAll
     public static void setup() {
-        RestAssured.filters(
-                List.of(new RequestLoggingFilter(),
-                        new ResponseLoggingFilter()));
+        //формируем данные пользователя
+        userRequest = new CreateUserRequest(
+                RandomData.getUsername(),
+                RandomData.getPassword(),
+                UserRole.USER.toString()
+        );
 
-        // создание пользователя, если он ранее не добавлялся
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body("""
-                        {
-                          "username": "barvinsk1",
-                          "password": "Barvinsk2000#",
-                          "role": "USER"
-                        }
-                        """)
-                .post("http://localhost:4111/api/v1/admin/users");
-
-        // получаем токен юзера
-        AUTH_TOKEN = given()
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                          "username": "barvinsk1",
-                          "password": "Barvinsk2000#"
-                        }
-                        """)
-                .post("http://localhost:4111/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
+        //создаем пользователя
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(userRequest);
     }
 
     @Test
     void userCanUpdateNameWithValidData() {
 
-        // обновляем имя
-        String newName = RandomStringUtils.randomAlphabetic(10);
-        given()
-                .header("Authorization", AUTH_TOKEN)
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                          "name": "%s"
-                        }                          
-                        """.formatted(newName))
-                .when()
-                .put("http://localhost:4111/api/v1/customer/profile")
-                .then()
-                .statusCode(HttpStatus.SC_OK);
+        // формируем запрос на изменение имени
+        var updateProfileRequest = CustomerProfileRequest.builder()
+                .name(RandomStringUtils.randomAlphabetic(10))
+                .build();
 
-        //проверяем, что имя обновилось
-        given()
-                .header("Authorization", AUTH_TOKEN)
-                .contentType(ContentType.JSON)
-                .when()
-                .get("http://localhost:4111/api/v1/customer/profile")
-                .then()
-                .statusCode(HttpStatus.SC_OK)
-                .body("name", Matchers.equalTo(newName));
+        // изменяем имя
+        new CustomerProfileRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                ResponseSpecs.requestReturnsOK())
+                .put(updateProfileRequest);
+
+        // проверяем, что имя изменилось
+        var actualProfile = new CustomerProfileRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                ResponseSpecs.requestReturnsOK())
+                .get()
+                .extract().as(CustomerProfileResponse.Customer.class);
+
+        Assertions.assertEquals(updateProfileRequest.getName(), actualProfile.getName());
     }
 }
