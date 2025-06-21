@@ -1,175 +1,180 @@
 package api;
 
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
-import io.restassured.http.ContentType;
-import org.apache.http.HttpStatus;
+import models.constants.UserRole;
+import generators.RandomData;
+import models.*;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import requests.*;
+import specs.RequestSpecs;
+import specs.ResponseSpecs;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import static io.restassured.RestAssured.given;
+import static models.constants.ApiErrorMessages.INVALID_TRANSFER;
 
 public class TransferAccountTest {
 
-    private static String AUTH_TOKEN;
+    private static CreateUserRequest userRequest;
+    private static Map<Long, Double> startBalance = new HashMap<>();
     private static List<Long> accountIds = new ArrayList<>();
 
     @BeforeAll
-    public static void setup() {
-        RestAssured.filters(
-                List.of(new RequestLoggingFilter(),
-                        new ResponseLoggingFilter()));
+    public static void setupUserAndAccount() {
 
-        // создание пользователя, если он ранее не добавлялся
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body("""
-                        {
-                          "username": "barvinsk1",
-                          "password": "Barvinsk2000#",
-                          "role": "USER"
-                        }
-                        """)
-                .post("http://localhost:4111/api/v1/admin/users");
+        //формируем данные пользователя
+        userRequest = new CreateUserRequest(
+                RandomData.getUsername(),
+                RandomData.getPassword(),
+                UserRole.USER.toString()
+        );
 
-        // получаем токен юзера
-        AUTH_TOKEN = given()
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                          "username": "barvinsk1",
-                          "password": "Barvinsk2000#"
-                        }
-                        """)
-                .post("http://localhost:4111/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
+        //создаем пользователя
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(userRequest);
 
         // создаем аккаунт(счет) в кол-ве 2 штук для перевода денег между ними
         List.of(1, 2).forEach(
                 num -> accountIds.add(
-                        given()
-                                .header("Authorization", AUTH_TOKEN)
-                                .contentType(ContentType.JSON)
-                                .post("http://localhost:4111/api/v1/accounts")
-                                .then()
-                                .assertThat()
-                                .statusCode(HttpStatus.SC_CREATED)
+                        new CreateAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                                ResponseSpecs.entityWasCreated())
+                                .post(null)
                                 .extract().jsonPath().getLong("id")
                 )
         );
 
         // пополнение всех аккаунтов (счетов) на 100
         accountIds.forEach(
-                accountId -> given()
-                        .header("Authorization", AUTH_TOKEN)
-                        .contentType(ContentType.JSON)
-                        .body("""
-                                {
-                                  "id": %s, 
-                                  "balance": 100
-                                }
-                                """.formatted(accountId))
-                        .when()
-                        .post("http://localhost:4111/api/v1/accounts/deposit")
-                        .then()
-                        .statusCode(HttpStatus.SC_OK)
+                accountId -> {
+                    var depositRequest = new DepositAccountRequest(accountId, 100d);
+
+                    new DepositeAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                            ResponseSpecs.requestReturnsOK())
+                            .post(depositRequest);
+                }
         );
+    }
+
+    @BeforeEach
+    public void setupStartBalance() {
+        //получаем информацию о началном балансе счетов
+        startBalance = getAccountBalances(accountIds);
     }
 
     @Test
     void userCanTransferWithValidData() {
 
-        //переводим деньги со счета 1 на счет 2
-        given()
-                .header("Authorization", AUTH_TOKEN)
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                        "senderAccountId": %s, 
-                        "receiverAccountId": %s, 
-                        "amount": 1}
-                        """.formatted(accountIds.get(0), accountIds.get(1)))
-                .when()
-                .post("http://localhost:4111/api/v1/accounts/transfer")
-                .then()
-                .statusCode(HttpStatus.SC_OK);
+        var senderAccountId = startBalance.keySet().stream().toList().getFirst();
+        var receiverAccountId = startBalance.keySet().stream().toList().getLast();
+        var amount = 1d;
+
+        //формируем данные для перевода денег с одного счета на другой
+        var transferRequest = TransferAccountRequest.builder()
+                .senderAccountId(senderAccountId)
+                .receiverAccountId(receiverAccountId)
+                .amount(amount)
+                .build();
+
+        //переводим деньги
+        new TransferAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                ResponseSpecs.requestReturnsOK())
+                .post(transferRequest);
+
+
+        //проверяем, что на счете отправителя баланс стал меньше на 1, а на счете получателя больше на 1
+        var actualBalance = getAccountBalances(accountIds);
+
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(
+                        startBalance.get(senderAccountId) - amount,
+                        actualBalance.get(senderAccountId)
+                ),
+                () -> Assertions.assertEquals(
+                        startBalance.get(receiverAccountId) + amount,
+                        actualBalance.get(receiverAccountId)
+                )
+        );
     }
 
-    @Test
-    void userCannotTransferWithNegativeAmount() {
-        given()
-                .header("Authorization", AUTH_TOKEN)
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                        "senderAccountId": %s, 
-                        "receiverAccountId": %s, 
-                        "amount": -1}
-                        """.formatted(accountIds.get(0), accountIds.get(1)))
-                .when()
-                .post("http://localhost:4111/api/v1/accounts/transfer")
-                .then()
-                .statusCode(HttpStatus.SC_BAD_REQUEST);
-    }
+    @ParameterizedTest(name = "Сумма перевода = {0}")
+    @ValueSource(doubles = {-1.0, 0.0, 9999999})
+    void userCannotTransferInvalidAmount(double amount) {
 
-    @Test
-    void userCannotTransferZeroAmount() {
-        given()
-                .header("Authorization", AUTH_TOKEN)
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                        "senderAccountId": %s, 
-                        "receiverAccountId": %s, 
-                        "amount": 0}
-                        """.formatted(accountIds.get(0), accountIds.get(1)))
-                .when()
-                .post("http://localhost:4111/api/v1/accounts/transfer")
-                .then()
-                .statusCode(HttpStatus.SC_BAD_REQUEST);
-    }
+        var senderAccountId = startBalance.keySet().stream().toList().getFirst();
+        var receiverAccountId = startBalance.keySet().stream().toList().getLast();
 
-    @Test
-    void userCannotTransferAmountGreaterThanAccountBalance() {
-        given()
-                .header("Authorization", AUTH_TOKEN)
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                        "senderAccountId": %s, 
-                        "receiverAccountId": %s, 
-                        "amount": 9999999}
-                        """.formatted(accountIds.get(0), accountIds.get(1)))
-                .when()
-                .post("http://localhost:4111/api/v1/accounts/transfer")
-                .then()
-                .statusCode(HttpStatus.SC_BAD_REQUEST);
+        //формируем данные для перевода денег с одного счета на другой
+        var transferRequest = TransferAccountRequest.builder()
+                .senderAccountId(senderAccountId)
+                .receiverAccountId(receiverAccountId)
+                .amount(amount)
+                .build();
+
+        //переводим деньги
+        new TransferAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                ResponseSpecs.requestReturnsBadRequest(INVALID_TRANSFER.getMessage()))
+                .post(transferRequest);
+
+        //проверяем, что на счете отправителя и получателя баланс не изменился
+        var actualBalance = getAccountBalances(accountIds);
+
+        Assertions.assertEquals(startBalance, actualBalance);
     }
 
     @Test
     void userCannotTransferToNonExistentAccount() {
-        given()
-                .header("Authorization", AUTH_TOKEN)
-                .contentType(ContentType.JSON)
-                .body("""
-                        {
-                        "senderAccountId": %s, 
-                        "receiverAccountId": 9999999, 
-                        "amount": 100}
-                        """.formatted(accountIds.get(0), accountIds.get(1)))
-                .when()
-                .post("http://localhost:4111/api/v1/accounts/transfer")
-                .then()
-                .statusCode(HttpStatus.SC_BAD_REQUEST);
+
+        var senderAccountId = startBalance.keySet().stream().toList().getFirst();
+        var receiverAccountId = 9999999;
+        var amount = 1d;
+
+        //формируем данные для перевода денег с несуществующего аккаунта на существующий
+        var transferRequest = TransferAccountRequest.builder()
+                .senderAccountId(senderAccountId)
+                .receiverAccountId(receiverAccountId)
+                .amount(amount)
+                .build();
+
+        //переводим деньги
+        new TransferAccountRequester(RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                ResponseSpecs.requestReturnsBadRequest(INVALID_TRANSFER.getMessage()))
+                .post(transferRequest);
+
+        //проверяем, что на счете получателя баланс не изменился
+        var actualBalance = getAccountBalances(accountIds);
+
+        Assertions.assertEquals(startBalance, actualBalance);
     }
 
+    //получение информации о балансе счетов
+    private Map<Long, Double> getAccountBalances(List<Long> accountIds) {
+        Map<Long, Double> accountBalances = new HashMap<>();
+        accountIds.forEach(
+                accountId -> accountBalances.put(accountId, getAccountBalance(accountId))
+        );
+        return accountBalances;
+    }
+
+    //получение баланса по id счета
+    private double getAccountBalance(long accountId) {
+        CustomerProfileResponse.Customer customer = new CustomerProfileRequester(
+                RequestSpecs.authAsUser(userRequest.getUsername(), userRequest.getPassword()),
+                ResponseSpecs.requestReturnsOK())
+                .get()
+                .extract().as(CustomerProfileResponse.Customer.class);
+
+        return customer.getAccounts().stream()
+                .filter(a -> a.getId() == accountId)
+                .findFirst()
+                .get().getBalance();
+    }
 }
